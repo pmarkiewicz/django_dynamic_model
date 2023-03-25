@@ -14,3 +14,6 @@ GRANT ALL PRIVILEGES ON DATABASE api TO api;
 
 -- this one is required to create tables
 GRANT ALL ON SCHEMA public TO api;
+
+-- this is necessary to run tests
+ALTER USER api CREATEDB;

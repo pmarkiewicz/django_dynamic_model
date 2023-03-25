@@ -21,7 +21,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/dynmodel/manage.py",
             "args": [
-                "test"
+                "test", "api.tests"
             ],
             "django": true,
             "justMyCode": false

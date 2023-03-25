@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import IdGenerator
+from .utils import unregister_models
 
 
 """
@@ -79,7 +80,6 @@ class DBTransaction(APITestCase):
         create_row_url = reverse('create-row', args=[id2])
         for d in self.data:
             response = self.client.post(create_row_url, d, format='json')
-            print(response)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         list_rows_url1 = reverse('list-rows', args=[id1])
@@ -109,3 +109,8 @@ class DBTransaction(APITestCase):
         self.assertEqual(response.data[0].get("make"), "toyota")
         self.assertEqual(response.data[1].get("make"), "mazda")
         self.assertEqual(response.data[0].get('licence_valid_year'), None)
+
+
+# it's necessary to unregister previous model
+# registered on application start before database change done by test
+unregister_models()
