@@ -16,6 +16,7 @@ from dynamic_models.models import ModelSchema, FieldSchema
 
 from .utils import get_data_type, get_table_name
 from .serializers import generic_serializer
+from .models import IdGenerator
 
 
 @api_view(['GET'])
@@ -26,6 +27,7 @@ def api_root(request, format=None):
         'create row': reverse('create-row', request=request, format=format, args=[1]),
         'list rows': reverse('list-rows', request=request, format=format, args=[1]),
         'list tables': reverse('list-tables', request=request, format=format),
+        'list django tables': reverse('list-django-tables', request=request, format=format),
     })
 
 
@@ -47,9 +49,13 @@ def create_table(request):
     """
 
     # assumption is that id is numeric and autoincrement
+    # other option is to use fixtures to initialise database
+    
     id = 1
-    if ModelSchema.objects.exists():
-        id = ModelSchema.objects.latest('id').id + 1
+    if IdGenerator.objects.exists():
+        id = IdGenerator.objects.first().last_id + 1
+
+    IdGenerator.objects.update_or_create(last_id=id)
 
     table_name = get_table_name(id)
     schema = ModelSchema.objects.create(name=table_name)
@@ -97,7 +103,7 @@ def update_table(request, id):
 
     for name, fld_type in request.data.items():
         cls, kw = get_data_type(fld_type)
-        FieldSchema.objects.create(
+        FieldSchema.objects.update_or_create(
             name=name,
             model_schema=schema,
             class_name=cls,
@@ -126,7 +132,12 @@ def create_row(request, id):
     }
     """
     table_name = get_table_name(id)
-    model = ModelSchema.objects.get(name=table_name).as_model()
+
+    try:
+        model = ModelSchema.objects.get(name=table_name).as_model()
+    except ObjectDoesNotExist:
+        return Response({'error': f'invalid model id: {id}'}, status=404)
+
     serializer_cls = generic_serializer(model)
     serializer = serializer_cls(data=request.data)
     if serializer.is_valid():
@@ -140,7 +151,11 @@ def create_row(request, id):
 @api_view(['GET'])
 def list_rows(request, id):
     table_name = get_table_name(id)
-    model = ModelSchema.objects.get(name=table_name).as_model()
+    try:
+        model = ModelSchema.objects.get(name=table_name).as_model()
+    except ObjectDoesNotExist:
+        return Response({'error': f'invalid model id: {id}'}, status=404)
+
     serializer_cls = generic_serializer(model)
     rows = model.objects.all()
     serializer = serializer_cls(rows, many=True)
@@ -148,20 +163,34 @@ def list_rows(request, id):
     return Response(serializer.data)
 
 
+def _get_dyn_tables_prefix() -> str:
+    return '{}_{}'.format('dynamic_models', settings.DYNAMIC_MODELS['DYNAMIC_TABLE_PREFIX'])
+
 @api_view(['GET'])
 def list_tables(request):
+    """
+    List of dynamically created tables. Works only with Postresql. Yes it can be done with django.
+    """
+    filter = _get_dyn_tables_prefix()
+
     conn = connections['default']
-    try:
-        cursor = conn.cursor()
+
+    with conn.cursor() as cursor:
         cursor.execute("""SELECT table_name 
-                            FROM information_schema.tables 
-                            WHERE table_schema = 'public' 
-                                AND table_type = 'BASE TABLE'
-                                AND table_name LIKE '{}_{}%';""" \
-                       .format('dynamic_models', settings.DYNAMIC_MODELS['DYNAMIC_TABLE_PREFIX']))
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                            AND table_type = 'BASE TABLE'
+                            AND table_name LIKE '{}%';"""
+                        .format(filter))
+
         table_list = cursor.fetchall()
 
-    finally:
-        cursor.close()
-
     return Response(table_list)
+
+@api_view(['GET'])
+def list_django_tables(request):
+    conn = connections['default']
+    table_list = conn.introspection.table_names()
+    filter = _get_dyn_tables_prefix()
+
+    return Response([table for table in table_list if table.startswith(filter)])

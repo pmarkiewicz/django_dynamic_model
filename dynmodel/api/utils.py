@@ -9,9 +9,10 @@ SUPPORTED_DATA_TYPES = {"character": "django.db.models.CharField",
 def get_data_type(v: str) -> str:
     try:
         result = SUPPORTED_DATA_TYPES[v.lower()]
-        kwargs = {}
+        kwargs = {'null': True, 'blank': True}
         if v == "character":
             kwargs['max_length'] = settings.DYNAMIC_MODELS['DEFAULT_CHAR_LENGHT']
+            kwargs['default'] = ''
 
         return result, kwargs
     except KeyError:
