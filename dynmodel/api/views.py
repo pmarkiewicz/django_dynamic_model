@@ -51,11 +51,15 @@ def create_table(request):
     # assumption is that id is numeric and autoincrement
     # other option is to use fixtures to initialise database
     
-    id = 1
+    
     if IdGenerator.objects.exists():
-        id = IdGenerator.objects.first().last_id + 1
-
-    IdGenerator.objects.update_or_create(last_id=id)
+        obj = IdGenerator.objects.first()
+        id = obj.last_id + 1
+        obj.last_id = id
+        obj.save()
+    else:
+        id = 1
+        IdGenerator.objects.create(last_id=id)
 
     table_name = get_table_name(id)
     schema = ModelSchema.objects.create(name=table_name)
@@ -166,6 +170,7 @@ def list_rows(request, id):
 def _get_dyn_tables_prefix() -> str:
     return '{}_{}'.format('dynamic_models', settings.DYNAMIC_MODELS['DYNAMIC_TABLE_PREFIX'])
 
+
 @api_view(['GET'])
 def list_tables(request):
     """
@@ -186,6 +191,7 @@ def list_tables(request):
         table_list = cursor.fetchall()
 
     return Response(table_list)
+
 
 @api_view(['GET'])
 def list_django_tables(request):

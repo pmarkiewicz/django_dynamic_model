@@ -4,6 +4,8 @@ from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from .models import IdGenerator
+
 
 """
 All tests are in one method as I'm unable to disable transaction to prevent removeal of new tables
@@ -54,9 +56,13 @@ class DBTransaction(APITestCase):
         create_url = reverse('create-table')
         tables_url = reverse('list-django-tables')
 
+        self.assertEqual(IdGenerator.objects.count(), 0)
+        
         response = self.client.post(create_url, self.create_datamodel, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         id1 = response.data['id']
+
+        self.assertEqual(IdGenerator.objects.count(), 1)
 
         response = self.client.get(tables_url)
         self.assertEqual(len(response.data), 1)
@@ -64,6 +70,8 @@ class DBTransaction(APITestCase):
         response = self.client.post(create_url, self.create_datamodel, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         id2 = response.data['id']
+
+        self.assertEqual(IdGenerator.objects.count(), 1)
 
         response = self.client.get(tables_url)
         self.assertEqual(len(response.data), 2)
