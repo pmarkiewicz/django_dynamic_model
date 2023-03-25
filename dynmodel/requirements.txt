@@ -1,0 +1,13 @@
+asgiref==3.6.0
+Django==4.1.7
+django-cors-headers==3.14.0
+django-environ==0.10.0
+djangorestframework==3.14.0
+dynamic-models @ git+https://github.com/rvinzent/django-dynamic-models.git@899440655bedd26f4edfe4b7f694ee75e0927f64
+flake8==6.0.0
+mccabe==0.7.0
+psycopg2==2.9.5
+pycodestyle==2.10.0
+pyflakes==3.0.1
+pytz==2022.7.1
+sqlparse==0.4.3
