@@ -116,6 +116,7 @@ def update_table(request, id):
 
     # create model
     reg_model = schema.as_model()
+    admin.site.unregister(reg_model)
     admin.site.register(reg_model)
     reload(import_module(settings.ROOT_URLCONF))
     clear_url_caches()
