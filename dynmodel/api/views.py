@@ -49,6 +49,9 @@ def create_table(request):
 
     """
    
+    if not request.data:
+        return Response({'error': 'datamodel cannot be empty'}, status=400)
+        
     counter = IncrementableSingletonModel.load()
     id = counter.next()
 
@@ -113,7 +116,7 @@ def update_table(request, id):
             )
     except ValueError as exc:
         return Response({'error': str(exc)}, status=400)
-    
+
     # create model
     reg_model = schema.as_model()
     try:
@@ -141,6 +144,9 @@ def create_row(request, id):
         "valid_license": true
     }
     """
+    if not request.data:
+        return Response({'error': 'No data'}, status=400)
+    
     table_name = get_table_name(id)
 
     try:
@@ -150,12 +156,17 @@ def create_row(request, id):
 
     serializer_cls = generic_serializer(model)
     serializer = serializer_cls(data=request.data)
+    
+
     if serializer.is_valid():
         obj = serializer.save()
         return Response({'id': obj.id}, status=201)
+    
+    return Response({'error': serializer.errors}, status=400)
+    
+    
 
-    # shouldn't be possible
-    return Response({'error': 'Internal error'}, status=500)
+    
 
 
 @api_view(['GET'])

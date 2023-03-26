@@ -50,14 +50,15 @@ class DBTransaction(APITestCase):
         "make": "character",
         "model": "charcter",
         "make_year": "integer",
-        "licence_valid_year": "integer"    }
+        "licence_valid_year": "integer"   
+    }
 
     data = [
         {
             "make": "toyota",
             "model": "corolla",
             "year": 2012,
-            "valid_license": True
+            "valid_license": False
         },
         {
             "make": "mazda",
@@ -65,6 +66,21 @@ class DBTransaction(APITestCase):
             "year": 2018,
             "valid_license": True
         }
+    ]
+
+    error_data = [
+        {
+            "make": "mazda",
+            "model": "cx-5",
+            "year": 2018,
+            "valid_license": "Tru"
+        },
+        {
+            "make": "mazda",
+            "model": "cx-5",
+            "year": "xxx",
+            "valid_license": True
+        },
     ]
     
     # def setUp(self):
@@ -82,6 +98,9 @@ class DBTransaction(APITestCase):
         tables_url = reverse('list-django-tables')
         
         response = self.client.post(create_url, self.error_datamodel, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.post(create_url, {}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         response = self.client.post(create_url, self.create_datamodel, format='json')
@@ -114,6 +133,24 @@ class DBTransaction(APITestCase):
         self.assertEqual(len(response.data), len(self.data))
         self.assertEqual(response.data[0].get("make"), "toyota")
         self.assertEqual(response.data[1].get("make"), "mazda")
+
+        for d in self.error_data:
+            response = self.client.post(create_row_url, d, format='json')
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.post(create_row_url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.post(create_row_url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        list_error_row_url = reverse('list-rows', args=[9999])
+        response = self.client.get(list_error_row_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        create_error_row_url = reverse('create-row', args=[9999])
+        response = self.client.post(create_error_row_url, self.data[0], format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
         update_url = reverse('update-table', args=[id2])
 
