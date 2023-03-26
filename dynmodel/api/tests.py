@@ -46,6 +46,12 @@ class DBTransaction(APITestCase):
         "licence_valid_year": "integer"
     }
 
+    error_datamodel = {
+        "make": "character",
+        "model": "charcter",
+        "make_year": "integer",
+        "licence_valid_year": "integer"    }
+
     data = [
         {
             "make": "toyota",
@@ -75,6 +81,9 @@ class DBTransaction(APITestCase):
         create_url = reverse('create-table')
         tables_url = reverse('list-django-tables')
         
+        response = self.client.post(create_url, self.error_datamodel, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
         response = self.client.post(create_url, self.create_datamodel, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         id1 = response.data['id']
@@ -110,6 +119,9 @@ class DBTransaction(APITestCase):
 
         response = self.client.put(update_url, self.update_datamodel, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.put(update_url, self.error_datamodel, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         response = self.client.get(tables_url)
         self.assertEqual(len(response.data), 2)

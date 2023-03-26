@@ -18,7 +18,7 @@ def get_data_type(v: str) -> str:
 
         return result, kwargs
     except KeyError:
-        raise ValueError(f'Unrecognised type {v.lower()}')
+        raise ValueError(f'Unrecognised type "{v.lower()}"')
 
 
 def get_table_name(id: int) -> str:

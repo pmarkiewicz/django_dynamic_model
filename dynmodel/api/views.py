@@ -55,18 +55,24 @@ def create_table(request):
     table_name = get_table_name(id)
     schema = ModelSchema.objects.create(name=table_name)
 
-    for name, fld_type in request.data.items():
-        cls, kw = get_data_type(fld_type)
-        FieldSchema.objects.create(
-            name=name,
-            model_schema=schema,
-            class_name=cls,
-            kwargs=kw
-        )
+    try:
+        for name, fld_type in request.data.items():
+            cls, kw = get_data_type(fld_type)
+            FieldSchema.objects.create(
+                name=name,
+                model_schema=schema,
+                class_name=cls,
+                kwargs=kw
+            )
+    except ValueError as exc:
+        schema.delete()
+        return Response({'error': str(exc)}, status=400)
 
     # create model
     reg_model = schema.as_model()
     admin.site.register(reg_model)
+
+    # do we need what is below?
     reload(import_module(settings.ROOT_URLCONF))
     clear_url_caches()
 
@@ -96,15 +102,18 @@ def update_table(request, id):
     except ObjectDoesNotExist:
         return Response({'error': f'invalid model id: {id}'}, status=404)
 
-    for name, fld_type in request.data.items():
-        cls, kw = get_data_type(fld_type)
-        FieldSchema.objects.update_or_create(
-            name=name,
-            model_schema=schema,
-            class_name=cls,
-            kwargs=kw
-        )
-
+    try:
+        for name, fld_type in request.data.items():
+            cls, kw = get_data_type(fld_type)
+            FieldSchema.objects.update_or_create(
+                name=name,
+                model_schema=schema,
+                class_name=cls,
+                kwargs=kw
+            )
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
+    
     # create model
     reg_model = schema.as_model()
     try:
