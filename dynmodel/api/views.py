@@ -3,6 +3,7 @@ from importlib import reload, import_module
 from django.conf import settings
 from django.db import connections
 from django.contrib import admin
+from django.contrib.admin.sites import NotRegistered
 from django.urls import clear_url_caches
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -16,7 +17,7 @@ from dynamic_models.models import ModelSchema, FieldSchema
 
 from .utils import get_data_type, get_table_name
 from .serializers import generic_serializer
-from .models import IdGenerator
+from .models import IncrementableSingletonModel
 
 
 @api_view(['GET'])
@@ -47,19 +48,9 @@ def create_table(request):
     }
 
     """
-
-    # assumption is that id is numeric and autoincrement
-    # other option is to use fixtures to initialise database
-    
-    
-    if IdGenerator.objects.exists():
-        obj = IdGenerator.objects.first()
-        id = obj.last_id + 1
-        obj.last_id = id
-        obj.save()
-    else:
-        id = 1
-        IdGenerator.objects.create(last_id=id)
+   
+    counter = IncrementableSingletonModel.load()
+    id = counter.next()
 
     table_name = get_table_name(id)
     schema = ModelSchema.objects.create(name=table_name)
@@ -116,7 +107,12 @@ def update_table(request, id):
 
     # create model
     reg_model = schema.as_model()
-    admin.site.unregister(reg_model)
+    try:
+        admin.site.unregister(reg_model)
+    except NotRegistered:
+        # ignore exception, maybe unregister is not needed?
+        pass
+
     admin.site.register(reg_model)
     reload(import_module(settings.ROOT_URLCONF))
     clear_url_caches()

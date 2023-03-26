@@ -4,8 +4,26 @@ from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import IdGenerator
+from .models import IncrementableSingletonModel
 from .utils import unregister_models
+
+
+class InceremntableSingleton(APITestCase):
+    def test_counter(self):
+        cnt = IncrementableSingletonModel.load()
+        self.assertEqual(cnt.value, 0)
+        self.assertEqual(cnt.next(), 1)
+        self.assertEqual(cnt.next(), 2)
+
+    def test_reload_counter(self):
+        cnt1 = IncrementableSingletonModel.load()
+        self.assertEqual(cnt1.value, 0)
+
+        self.assertEqual(cnt1.next(), 1)
+
+        cnt2 = IncrementableSingletonModel.load()
+        self.assertEqual(cnt2.value, 1)
+        self.assertEqual(cnt2.next(), 2)
 
 
 """
@@ -56,14 +74,10 @@ class DBTransaction(APITestCase):
         """
         create_url = reverse('create-table')
         tables_url = reverse('list-django-tables')
-
-        self.assertEqual(IdGenerator.objects.count(), 0)
         
         response = self.client.post(create_url, self.create_datamodel, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         id1 = response.data['id']
-
-        self.assertEqual(IdGenerator.objects.count(), 1)
 
         response = self.client.get(tables_url)
         self.assertEqual(len(response.data), 1)
@@ -71,8 +85,6 @@ class DBTransaction(APITestCase):
         response = self.client.post(create_url, self.create_datamodel, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         id2 = response.data['id']
-
-        self.assertEqual(IdGenerator.objects.count(), 1)
 
         response = self.client.get(tables_url)
         self.assertEqual(len(response.data), 2)
