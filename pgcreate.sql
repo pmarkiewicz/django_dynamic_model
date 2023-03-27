@@ -1,6 +1,9 @@
 -- all changes to database to work correctly with project
 -- username is api
 -- database is api
+-- run psql postgres
+
+CREATE DATABASE api;
 
 CREATE USER api WITH PASSWORD 'xxxxxxx';
 

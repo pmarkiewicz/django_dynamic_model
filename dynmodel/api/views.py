@@ -3,6 +3,7 @@ from importlib import reload, import_module
 from django.conf import settings
 from django.db import connections
 from django.contrib import admin
+from django.contrib.admin.sites import NotRegistered
 from django.urls import clear_url_caches
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -16,7 +17,7 @@ from dynamic_models.models import ModelSchema, FieldSchema
 
 from .utils import get_data_type, get_table_name
 from .serializers import generic_serializer
-from .models import IdGenerator
+from .models import IncrementableSingletonModel
 
 
 @api_view(['GET'])
@@ -47,35 +48,34 @@ def create_table(request):
     }
 
     """
-
-    # assumption is that id is numeric and autoincrement
-    # other option is to use fixtures to initialise database
-    
-    
-    if IdGenerator.objects.exists():
-        obj = IdGenerator.objects.first()
-        id = obj.last_id + 1
-        obj.last_id = id
-        obj.save()
-    else:
-        id = 1
-        IdGenerator.objects.create(last_id=id)
+   
+    if not request.data:
+        return Response({'error': 'datamodel cannot be empty'}, status=400)
+        
+    counter = IncrementableSingletonModel.load()
+    id = counter.next()
 
     table_name = get_table_name(id)
     schema = ModelSchema.objects.create(name=table_name)
 
-    for name, fld_type in request.data.items():
-        cls, kw = get_data_type(fld_type)
-        FieldSchema.objects.create(
-            name=name,
-            model_schema=schema,
-            class_name=cls,
-            kwargs=kw
-        )
+    try:
+        for name, fld_type in request.data.items():
+            cls, kw = get_data_type(fld_type)
+            FieldSchema.objects.create(
+                name=name,
+                model_schema=schema,
+                class_name=cls,
+                kwargs=kw
+            )
+    except ValueError as exc:
+        schema.delete()
+        return Response({'error': str(exc)}, status=400)
 
     # create model
     reg_model = schema.as_model()
     admin.site.register(reg_model)
+
+    # do we need what is below?
     reload(import_module(settings.ROOT_URLCONF))
     clear_url_caches()
 
@@ -105,17 +105,26 @@ def update_table(request, id):
     except ObjectDoesNotExist:
         return Response({'error': f'invalid model id: {id}'}, status=404)
 
-    for name, fld_type in request.data.items():
-        cls, kw = get_data_type(fld_type)
-        FieldSchema.objects.update_or_create(
-            name=name,
-            model_schema=schema,
-            class_name=cls,
-            kwargs=kw
-        )
+    try:
+        for name, fld_type in request.data.items():
+            cls, kw = get_data_type(fld_type)
+            FieldSchema.objects.update_or_create(
+                name=name,
+                model_schema=schema,
+                class_name=cls,
+                kwargs=kw
+            )
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
 
     # create model
     reg_model = schema.as_model()
+    try:
+        admin.site.unregister(reg_model)
+    except NotRegistered:
+        # ignore exception, maybe unregister is not needed?
+        pass
+
     admin.site.register(reg_model)
     reload(import_module(settings.ROOT_URLCONF))
     clear_url_caches()
@@ -135,6 +144,9 @@ def create_row(request, id):
         "valid_license": true
     }
     """
+    if not request.data:
+        return Response({'error': 'No data'}, status=400)
+    
     table_name = get_table_name(id)
 
     try:
@@ -144,12 +156,17 @@ def create_row(request, id):
 
     serializer_cls = generic_serializer(model)
     serializer = serializer_cls(data=request.data)
+    
+
     if serializer.is_valid():
         obj = serializer.save()
         return Response({'id': obj.id}, status=201)
+    
+    return Response({'error': serializer.errors}, status=400)
+    
+    
 
-    # shouldn't be possible
-    return Response({'error': 'Internal error'}, status=500)
+    
 
 
 @api_view(['GET'])
